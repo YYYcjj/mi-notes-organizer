@@ -159,5 +159,19 @@ def site(source, title):
     site_gen.generate(collection)
 
 
+@cli.command()
+@click.argument("data_dir", default="data", type=click.Path(exists=False))
+@click.option("--host", default="0.0.0.0", help="绑定地址")
+@click.option("--port", default=8080, help="端口")
+@click.option("--reload/--no-reload", default=False, help="自动重载")
+def serve(data_dir, host, port, reload):
+    """启动 Web 服务，在浏览器中浏览笔记
+
+    DATA_DIR: 笔记数据目录（支持 ZIP/JSON/Markdown）
+    """
+    from .web.server import start_server
+    start_server(data_dir=data_dir, host=host, port=port, reload=reload)
+
+
 if __name__ == "__main__":
     cli()
