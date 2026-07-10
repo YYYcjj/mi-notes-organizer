@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>📝 小米笔记</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#c9d1d9;--muted:#8b949e;--accent:#ff6700;--accent2:#58a6ff;--tag-bg:#1f2a37;--tag-text:#79c0ff;--radius:6px;--shadow:0 1px 4px rgba(0,0,0,.3);--danger:#da3633;--success:#3fb950}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+header{background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+.hd{max-width:1100px;margin:0 auto;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.hd h1{font-size:1.25rem;white-space:nowrap}
+.hd h1 a{color:var(--text);text-decoration:none}
+.hd h1 span{color:var(--accent)}
+.hd-right{display:flex;align-items:center;gap:8px}
+.search{width:240px;padding:7px 14px;border:1px solid var(--border);border-radius:20px;background:var(--bg);color:var(--text);font-size:.9rem;outline:none;transition:border-color .2s}
+.search:focus{border-color:var(--accent)}
+.btn{padding:7px 16px;background:var(--accent);color:#fff;border:none;border-radius:20px;cursor:pointer;font-size:.85rem;white-space:nowrap;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn-ghost{padding:6px 14px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:20px;cursor:pointer;font-size:.8rem;white-space:nowrap;transition:all .15s}
+.btn-ghost:hover{color:var(--text);border-color:var(--accent)}
+.btn input{display:none}
+main{max-width:1100px;margin:0 auto;padding:20px}
+.stats{color:var(--muted);font-size:.85rem;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px}
+.tab{padding:5px 14px;border:1px solid var(--border);border-radius:16px;background:var(--card);cursor:pointer;font-size:.85rem;transition:all .15s;user-select:none;color:var(--muted)}
+.tab:hover{border-color:var(--accent);color:var(--text)}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tab .n{font-size:.75rem;opacity:.7;margin-left:3px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;cursor:pointer;transition:all .15s}
+.card:hover{border-color:var(--accent2);box-shadow:var(--shadow)}
+.card h3{font-size:1rem;margin-bottom:4px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .meta{font-size:.8rem;color:var(--muted);margin-bottom:6px}
+.card .summary{font-size:.88rem;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.5}
+.card .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.tag{padding:2px 8px;background:var(--tag-bg);color:var(--tag-text);border-radius:10px;font-size:.75rem}
+.upload-zone{border:2px dashed var(--border);border-radius:12px;padding:50px 20px;text-align:center;cursor:pointer;transition:all .2s;margin:20px 0}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--accent);background:rgba(255,103,0,0.05)}
+.upload-zone .icon{font-size:2.5rem;margin-bottom:12px}
+.upload-zone .title{font-size:1.1rem;color:var(--text);margin-bottom:6px}
+.upload-zone .hint{font-size:.85rem;color:var(--muted)}
+.upload-zone input{display:none}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 24px;border-radius:20px;font-size:.9rem;z-index:999;transition:all .3s;opacity:0;pointer-events:none}
+.toast.show{opacity:1}
+.toast.error{background:var(--danger)}
+.back{display:inline-block;margin-bottom:16px;color:var(--accent2);text-decoration:none;font-size:.9rem;cursor:pointer}
+.back:hover{text-decoration:underline}
+.detail{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px 32px}
+.detail h2{font-size:1.5rem;margin-bottom:10px}
+.detail .dm{font-size:.85rem;color:var(--muted);margin-bottom:16px}
+.detail .body{font-size:1rem;line-height:1.85;color:#e6edf3}
+.detail .body h1{font-size:1.3rem;margin:20px 0 8px;border-bottom:1px solid var(--border);padding-bottom:4px}
+.detail .body h2{font-size:1.15rem;margin:16px 0 6px}
+.detail .body h3{font-size:1.05rem;margin:12px 0 4px}
+.detail .body p{margin-bottom:10px}
+.detail .body pre{background:#0d1117;padding:14px 16px;border-radius:var(--radius);overflow-x:auto;margin:10px 0;font-size:.88rem;border:1px solid var(--border)}
+.detail .body code{background:#1f2a37;padding:2px 6px;border-radius:4px;font-size:.88em}
+.detail .body pre code{background:none;padding:0}
+.detail .body blockquote{border-left:3px solid var(--accent);padding:4px 14px;color:var(--muted);margin:10px 0}
+.detail .body ul,.detail .body ol{padding-left:22px;margin:8px 0}
+.detail .body li{margin:4px 0}
+.detail .body img{max-width:100%;border-radius:var(--radius)}
+.detail .body a{color:var(--accent2)}
+.detail .body table{width:100%;border-collapse:collapse;margin:12px 0}
+.detail .body th,.detail .body td{border:1px solid var(--border);padding:8px 12px;text-align:left}
+.detail .body th{background:#1f2a37}
+.detail-actions{display:flex;gap:8px;margin-bottom:16px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:center;justify-content:center}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:400px;width:90%}
+.modal h3{font-size:1.1rem;margin-bottom:12px}
+.modal p{color:var(--muted);font-size:.9rem;margin-bottom:16px}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end}
+.modal.steps{max-width:560px;max-height:80vh;overflow-y:auto}
+.modal.steps ol{margin:8px 0 0 20px;color:var(--text);font-size:.9rem;line-height:1.8}
+.modal.steps li{margin-bottom:6px}
+.modal.steps code{background:#1f2a37;padding:2px 6px;border-radius:4px;font-size:.85em}
+.modal.steps a{color:var(--accent2)}
+.progress{background:var(--border);border-radius:10px;height:6px;margin:12px 0;overflow:hidden}
+.progress-bar{background:var(--accent);height:100%;border-radius:10px;transition:width .3s}
+@media(max-width:640px){.hd{flex-wrap:wrap}.search{width:100%}.grid{grid-template-columns:1fr}.detail{padding:18px 16px}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+<header><div class="hd">
+<h1><a href="#" id="homeLink">📝 <span>小米笔记</span></a></h1>
+<div class="hd-right">
+  <input class="search" id="search" placeholder="搜索笔记..." autocomplete="off">
+  <label class="btn">
+    📥 导入
+    <input type="file" id="fileInput" accept=".zip,.json,.md" multiple>
+  </label>
+  <button class="btn-ghost" id="btnHelp" title="导出指南">❓</button>
+  <button class="btn-ghost" id="btnClear" title="清空数据">🗑</button>
+</div>
+</div></header>
+<main>
+<div class="toast" id="toast"></div>
+<div id="app"></div>
+</main>
+<div id="modalContainer"></div>
+
+<script>
+// ============ 数据管理 ============
+const STORAGE_KEY = 'mi_notes_data';
+let NOTES = [];
+let nextId = 1;
+
+function loadNotes() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      NOTES = data.notes || [];
+      nextId = data.nextId || 1;
+    }
+  } catch(e) { NOTES = []; }
+}
+function saveNotes() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ notes: NOTES, nextId }));
+}
+function clearNotes() {
+  NOTES = []; nextId = 1;
+  saveNotes();
+}
+
+// ============ 分类 & 标签 ============
+const CATEGORY_RULES = [
+  { cat: '交易', kw: ['交易','合约','做空','做多','止损','止盈','SRSI','MAE','MFE','DOGE','PUMP','ORDI','APT','WLD','AXS','BTC','K线','仓位','杠杆','行情','永续'] },
+  { cat: '技术', kw: ['代码','编程','Python','JavaScript','TypeScript','React','Vue','API','前端','后端','数据库','服务器','Git','Docker','K8s','部署','框架','算法','bug','Bug','debug','重构'] },
+  { cat: '工作', kw: ['工作','项目','会议','周报','日报','需求','产品','设计','测试','上线','发布','客户','方案','汇报','OKR','KPI','复盘'] },
+  { cat: '学习', kw: ['学习','读书','笔记','课程','考试','证书','培训','教程','阅读','知识点','概念'] },
+  { cat: '生活', kw: ['生活','日常','美食','旅游','运动','健身','跑步','游泳','电影','音乐','游戏','购物','周末','深圳','南山','椰子鸡','空调'] },
+  { cat: '随笔', kw: ['随笔','随记','感想','心情','日记','记录'] },
+];
+
+function classifyNote(note) {
+  if (note.category) return;
+  const text = (note.title + ' ' + (note.content||'')).toLowerCase();
+  let bestCat = '其他'; let bestScore = 0;
+  for (const rule of CATEGORY_RULES) {
+    let score = 0;
+    for (const kw of rule.kw) {
+      if (text.includes(kw.toLowerCase())) score++;
+    }
+    if (score > bestScore) { bestScore = score; bestCat = rule.cat; }
+  }
+  note.category = bestCat;
+}
+
+function extractTags(note) {
+  if (note.tags && note.tags.length) return;
+  const text = note.title + ' ' + (note.content||'');
+  // 提取 #tag 格式
+  const hashTags = text.match(/#[\w\u4e00-\u9fff]+/g) || [];
+  // 提取关键词：英文大写词、中文2-4字高频词
+  const words = [];
+  const enWords = text.match(/[A-Z]{2,}/g) || [];
+  words.push(...enWords.map(w => w.toUpperCase()));
+  const unique = [...new Set([...hashTags.map(t => t.slice(1)), ...words])];
+  note.tags = unique.slice(0, 8);
+}
+
+// ============ 文件解析 ============
+async function parseZip(file) {
+  const notes = [];
+  const zip = await JSZip.loadAsync(file);
+  const files = Object.keys(zip.files);
+
+  for (const name of files) {
+    if (zip.files[name].dir) continue;
+    const lower = name.toLowerCase();
+    try {
+      if (lower.endsWith('.json')) {
+        const text = await zip.files[name].async('string');
+        notes.push(...parseJsonContent(text, name));
+      } else if (lower.endsWith('.md')) {
+        const text = await zip.files[name].async('string');
+        notes.push(parseMarkdownContent(text, name));
+      }
+    } catch(e) {
+      console.warn('跳过文件:', name, e.message);
+    }
+  }
+  return notes;
+}
+
+function parseJsonContent(text, filename) {
+  const results = [];
+  try {
+    let data = JSON.parse(text);
+    if (!Array.isArray(data)) {
+      if (Array.isArray(data.notes)) data = data.notes;
+      else if (Array.isArray(data.activeNotes)) data = data.activeNotes;
+      else if (Array.isArray(data.data)) data = data.data;
+      else data = [data];
+    }
+    for (const item of data) {
+      if (!item.title && !item.content) continue;
+      results.push({
+        title: item.title || '无标题',
+        content: cleanContent(item.content || item.text || item.body || item.summary || ''),
+        folder: item.folder || item.category || item.notebook || '',
+        createdAt: item.createdAt || item.created_at || item.createTime || Date.now(),
+        modifiedAt: item.modifiedAt || item.modified_at || item.updateTime || Date.now(),
+      });
+    }
+  } catch(e) {
+    console.warn('JSON 解析失败:', filename, e.message);
+    // 尝试直接提取文本
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length > 0) {
+      results.push({
+        title: filename.replace(/\.json$/i, ''),
+        content: text.substring(0, 10000),
+        createdAt: Date.now(),
+        modifiedAt: Date.now(),
+      });
+    }
+  }
+  return results;
+}
+
+function parseMarkdownContent(text, filename) {
+  const results = [];
+  try {
+    let title = filename.replace(/\.md$/i, '').replace(/^.*[/\\]/, '');
+    let content = text;
+    // 解析 YAML frontmatter
+    const fmMatch = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+    if (fmMatch) {
+      const fm = fmMatch[1];
+      content = fmMatch[2];
+      const tMatch = fm.match(/^title:\s*(.+)$/m);
+      if (tMatch) title = tMatch[1].replace(/['"]/g, '');
+    }
+    // 用首个 # 标题
+    const h1Match = content.match(/^#\s+(.+)$/m);
+    if (h1Match && title === filename.replace(/\.md$/i, '')) {
+      title = h1Match[1];
+    }
+    results.push({
+      title: title || '无标题',
+      content: cleanContent(content),
+      createdAt: Date.now(),
+      modifiedAt: Date.now(),
+    });
+  } catch(e) {
+    console.warn('Markdown 解析失败:', filename, e.message);
+  }
+  return results;
+}
+
+function cleanContent(text) {
+  if (!text) return '';
+  // 清理 HTML 标签（保留 br 和 p）
+  let t = text.replace(/<br\s*\/?>/gi, '\n');
+  t = t.replace(/<\/p>\s*<p[^>]*>/gi, '\n\n');
+  t = t.replace(/<[^>]+>/g, '');
+  t = t.replace(/&nbsp;/g, ' ');
+  t = t.replace(/&amp;/g, '&');
+  t = t.replace(/&lt;/g, '<');
+  t = t.replace(/&gt;/g, '>');
+  t = t.replace(/&quot;/g, '"');
+  // 去除多余空行
+  t = t.replace(/\n{3,}/g, '\n\n');
+  return t.trim();
+}
+
+function formatDate(ts) {
+  if (!ts) return '未知日期';
+  const d = new Date(typeof ts === 'number' ? (ts > 1e12 ? ts : ts * 1000) : ts);
+  if (isNaN(d.getTime())) return '未知日期';
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function wordCount(text) {
+  if (!text) return 0;
+  const cn = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+  const en = (text.match(/[a-zA-Z]+/g) || []).length;
+  return cn + en;
+}
+
+// ============ 导入处理 ============
+async function importFiles(files) {
+  let newNotes = [];
+  let total = 0;
+  let skipped = 0;
+
+  for (const file of files) {
+    const lower = file.name.toLowerCase();
+    try {
+      if (lower.endsWith('.zip')) {
+        const parsed = await parseZip(file);
+        newNotes.push(...parsed);
+      } else if (lower.endsWith('.json')) {
+        const text = await file.text();
+        const parsed = parseJsonContent(text, file.name);
+        newNotes.push(...parsed);
+      } else if (lower.endsWith('.md')) {
+        const text = await file.text();
+        const parsed = parseMarkdownContent(text, file.name);
+        newNotes.push(...parsed);
+      }
+    } catch(e) {
+      console.warn('文件处理失败:', file.name, e.message);
+      skipped++;
+    }
+  }
+
+  // 整理
+  const existingTitles = new Set(NOTES.map(n => n.title));
+  for (const note of newNotes) {
+    if (!note.title) note.title = '无标题';
+    if (!note.content) note.content = '';
+    // 避免重名
+    let title = note.title;
+    let c = 1;
+    while (existingTitles.has(title)) {
+      title = note.title + ' (' + (++c) + ')';
+    }
+    note.title = title;
+    existingTitles.add(title);
+
+    classifyNote(note);
+    extractTags(note);
+    note.id = nextId++;
+    note.summary = (note.content || '').substring(0, 200).replace(/\n/g, ' ');
+    note.date = formatDate(note.createdAt);
+    note.wordCount = wordCount(note.content);
+    NOTES.push(note);
+    total++;
+  }
+
+  saveNotes();
+  showList('全部');
+  toast('成功导入 ' + total + ' 篇笔记' + (skipped > 0 ? '（跳过 ' + skipped + ' 个文件）' : ''));
+}
+
+// ============ UI 渲染 ============
+let currentCat = '全部';
+let currentQuery = '';
+
+function showList(cat, query) {
+  currentCat = cat || '全部';
+  currentQuery = query || '';
+  const app = document.getElementById('app');
+
+  if (!NOTES.length) {
+    app.innerHTML = `<div class="upload-zone" id="dropZone">
+      <div class="icon">📂</div>
+      <div class="title">拖拽文件到这里导入，或点击上传</div>
+      <div class="hint">支持 ZIP · JSON · Markdown · 小米笔记导出文件</div>
+      <input type="file" id="dropInput" accept=".zip,.json,.md" multiple>
+    </div>`;
+    bindDropZone();
+    return;
+  }
+
+  const cats = {};
+  let totalWords = 0;
+  NOTES.forEach(n => {
+    const c = n.category || '其他';
+    cats[c] = (cats[c]||0)+1;
+    totalWords += n.wordCount || 0;
+  });
+
+  let filtered = NOTES;
+  if (currentCat !== '全部') filtered = filtered.filter(n => (n.category||'其他') === currentCat);
+  if (currentQuery) {
+    const q = currentQuery.toLowerCase();
+    filtered = filtered.filter(n =>
+      n.title.toLowerCase().includes(q) ||
+      (n.content||'').toLowerCase().includes(q) ||
+      (n.tags||[]).some(t => t.toLowerCase().includes(q))
+    );
+  }
+
+  let html = `<div class="stats"><span>共 ${NOTES.length} 篇笔记 · ${Object.keys(cats).length} 个分类 · ${totalWords.toLocaleString()} 字</span></div>`;
+  html += '<div class="tabs">';
+  html += `<span class="tab${currentCat==='全部'?' active':''}" onclick="showList('全部')">全部<span class="n">${NOTES.length}</span></span>`;
+  Object.entries(cats).sort((a,b)=>b[1]-a[1]).forEach(([c,n]) => {
+    html += `<span class="tab${currentCat===c?' active':''}" onclick="showList('${c}')">${c}<span class="n">${n}</span></span>`;
+  });
+  html += '</div>';
+
+  if (!filtered.length) {
+    html += `<div style="text-align:center;padding:40px;color:var(--muted)">🔍 没有匹配的笔记</div>`;
+  } else {
+    html += '<div class="grid">';
+    filtered.forEach(n => {
+      html += `<div class="card" onclick="showDetail(${n.id})">
+        <h3>${esc(n.title)}</h3>
+        <div class="meta">${n.date||''} · ${n.category||'其他'} · ${n.wordCount||0} 字</div>
+        <div class="summary">${esc((n.summary||'').substring(0,180))}</div>
+        ${(n.tags||[]).length ? '<div class="tags">'+n.tags.slice(0,5).map(t=>`<span class="tag">${esc(t)}</span>`).join('')+'</div>' : ''}
+      </div>`;
+    });
+    html += '</div>';
+  }
+  app.innerHTML = html;
+
+  if (document.getElementById('search').value !== currentQuery) {
+    document.getElementById('search').value = currentQuery;
+  }
+}
+
+function showDetail(id) {
+  const n = NOTES.find(x => x.id === id);
+  if (!n) { showList('全部'); return; }
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="detail-actions">
+      <span class="back" onclick="showList(currentCat||'全部', currentQuery)">← 返回列表</span>
+      <button class="btn-ghost" onclick="deleteNote(${n.id})">🗑 删除</button>
+    </div>
+    <div class="detail">
+      <h2>${esc(n.title)}</h2>
+      <div class="dm">${n.date||''} · ${n.category||'其他'} · ${n.wordCount||0} 字</div>
+      ${(n.tags||[]).length ? '<div class="tags" style="margin-bottom:16px">'+n.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')+'</div>' : ''}
+      <div class="body">${md2html(n.content||'')}</div>
+    </div>`;
+  window.location.hash = 'note-' + id;
+  document.title = n.title + ' - 小米笔记';
+  window.scrollTo(0,0);
+}
+
+function deleteNote(id) {
+  showConfirm('确定删除这篇笔记？', () => {
+    NOTES = NOTES.filter(n => n.id !== id);
+    saveNotes();
+    showList(currentCat, currentQuery);
+    toast('已删除');
+  });
+}}
+
+function showHelp() {
+  const mc = document.getElementById('modalContainer');
+  mc.innerHTML = `<div class="modal-overlay" onclick="this.remove()">
+    <div class="modal steps" onclick="event.stopPropagation()">
+      <h3>📝 如何导出小米笔记并导入</h3>
+      <p style="margin-bottom:8px;color:var(--muted)">需要先在电脑上导出笔记，再导入这里：</p>
+      <ol>
+        <li>用<strong>电脑浏览器</strong>打开 <a href="https://i.mi.com/note/h5" target="_blank">i.mi.com/note/h5</a> 并登录小米账号</li>
+        <li>按 <code>F12</code> 打开开发者工具，切换到 <strong>Console(控制台)</strong></li>
+        <li>复制 <a href="mi-notes-export.js" target="_blank">导出脚本</a> 全部代码，粘贴到控制台，按回车</li>
+        <li>等待脚本自动扫描并下载 <code>mi-notes-export_日期.json</code></li>
+        <li>将下载的 JSON 文件<strong>拖入</strong>本页面，或点击「📥 导入」按钮</li>
+      </ol>
+      <p style="font-size:.8rem;color:var(--muted);margin-top:12px">
+        ⚠️ 脚本在小米云官网执行，所有数据本地处理，不会上传到第三方。建议在私人电脑上操作。
+      </p>
+      <p style="font-size:.8rem;color:var(--muted);margin-top:4px">
+        💡 也支持直接导入 ZIP、Markdown 文件。
+        <br><br>🔁 <strong>自动同步</strong>：配置 GitHub Actions 后，每周自动备份最新笔记到仓库。
+      </p>
+      <div class="modal-btns" style="margin-top:12px">
+        <a href="mi-notes-export.js" download class="btn" style="text-decoration:none;display:inline-block">⬇ 下载导出脚本</a>
+        <button class="btn-ghost" onclick="document.getElementById('modalContainer').innerHTML=''">关闭</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function showConfirm(msg, onOk) {
+  const mc = document.getElementById('modalContainer');
+  mc.innerHTML = `<div class="modal-overlay" onclick="this.remove()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <h3>确认</h3><p>${msg}</p>
+      <div class="modal-btns">
+        <button class="btn-ghost" onclick="document.getElementById('modalContainer').innerHTML=''">取消</button>
+        <button class="btn" id="confirmBtn">确定</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('confirmBtn').onclick = () => {
+    mc.innerHTML = '';
+    onOk();
+  };
+}
+
+function esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function md2html(t) {
+  if (!t) return '';
+  t = t.replace(/```(\w*)\n([\s\S]*?)```/g, (_,lang,code)=>'<pre><code>'+esc(code.trim())+'</code></pre>');
+  t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+  t = t.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+  t = t.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  t = t.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  t = t.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  t = t.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+  t = t.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+  t = t.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+  t = t.replace(/^---$/gm, '<hr>');
+  t = t.split(/\n\n+/).map(p => {
+    p = p.trim();
+    if (!p) return '';
+    if (/^<(h[1-4]|pre|ul|ol|blockquote|hr|table|img|code)/.test(p)) return p;
+    if (/^[-*] /.test(p)) {
+      const items = p.split('\n').filter(l=>/^[-*] /.test(l));
+      return '<ul>' + items.map(l=>'<li>'+l.replace(/^[-*] /,'')+'</li>').join('') + '</ul>';
+    }
+    return '<p>' + p.replace(/\n/g, '<br>') + '</p>';
+  }).join('\n');
+  return t;
+}
+
+function toast(msg, isError) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast' + (isError ? ' error' : '');
+  setTimeout(()=>{ el.className = 'toast show' + (isError ? ' error' : ''); }, 10);
+  setTimeout(()=>{ el.className = 'toast'; }, 2500);
+}
+
+function debounce(fn, ms) { let t; return function(){ clearTimeout(t); t=setTimeout(()=>fn.apply(this,arguments),ms); }; }
+
+function bindDropZone() {
+  const zone = document.getElementById('dropZone');
+  if (!zone) return;
+  const inp = document.getElementById('dropInput');
+
+  zone.addEventListener('click', () => inp.click());
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', async e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length) {
+      toast('正在解析...');
+      await importFiles(files);
+    }
+  });
+  inp.addEventListener('change', async () => {
+    if (inp.files.length) {
+      toast('正在解析...');
+      await importFiles(inp.files);
+      inp.value = '';
+    }
+  });
+}
+
+// ============ 初始化 ============
+function init() {
+  loadNotes();
+
+  const hash = window.location.hash;
+  if (hash.startsWith('#note-')) {
+    const id = parseInt(hash.slice(6));
+    showDetail(id);
+  } else {
+    showList('全部');
+  }
+
+  document.getElementById('homeLink').addEventListener('click', e => {
+    e.preventDefault();
+    showList('全部', '');
+  });
+
+  document.getElementById('search').addEventListener('input', debounce(function(e){
+    showList(currentCat, e.target.value);
+  }, 200));
+
+  document.getElementById('fileInput').addEventListener('change', async function(){
+    if (this.files.length) {
+      toast('正在解析...');
+      await importFiles(this.files);
+      this.value = '';
+    }
+  });
+
+  document.getElementById('btnClear').addEventListener('click', () => {
+    if (!NOTES.length) { toast('还没有数据'); return; }
+    showConfirm('确定清空全部 ' + NOTES.length + ' 篇笔记？此操作不可恢复。', () => {
+      clearNotes();
+      showList('全部');
+      toast('已清空');
+    });
+  });
+
+  document.getElementById('btnHelp').addEventListener('click', showHelp);
+
+  // 全局拖拽
+  document.addEventListener('dragover', e => e.preventDefault());
+  document.addEventListener('drop', e => {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (files.length) {
+      toast('正在解析...');
+      importFiles(files);
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>
