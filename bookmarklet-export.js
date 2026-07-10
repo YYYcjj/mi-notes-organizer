@@ -72,51 +72,61 @@
     return entries;
   }
 
-  // ===== 阶段2: 获取详情 =====
+  // ===== 阶段2: 并发获取详情 =====
+  async function fetchDetail(note) {
+    try {
+      const res = await fetch(`https://i.mi.com/note/note/${note.id}/?ts=${Date.now()}`).then(r => r.json());
+      const entry = res.data?.entry;
+      if (!entry) return null;
+
+      let title = '无标题';
+      try {
+        const extra = JSON.parse(entry.extraInfo || '{}');
+        if (extra.title) title = extra.title;
+      } catch(e) {}
+
+      let content = (entry.content || '')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
+      return {
+        title, content,
+        folder: entry.folderId || '',
+        createdAt: note.createDate,
+        modifiedAt: note.modifyDate || note.createDate,
+      };
+    } catch(e) {
+      return null;
+    }
+  }
+
   async function fetchDetails(list) {
     const notes = [];
     const total = list.length;
+    const BATCH = 8;  // 并发数
 
-    for (let i = 0; i < total; i++) {
-      const note = list[i];
-      try {
-        const res = await fetch(`https://i.mi.com/note/note/${note.id}/?ts=${Date.now()}`).then(r => r.json());
-        const entry = res.data?.entry;
-        if (!entry) continue;
+    for (let i = 0; i < total; i += BATCH) {
+      const batch = list.slice(i, i + BATCH);
+      const results = await Promise.all(batch.map(fetchDetail));
 
-        let title = '无标题';
-        try {
-          const extra = JSON.parse(entry.extraInfo || '{}');
-          if (extra.title) title = extra.title;
-        } catch(e) {}
-
-        let content = (entry.content || '')
-          .replace(/<br\s*\/?>/gi, '\n')
-          .replace(/<\/p>/gi, '\n')
-          .replace(/<[^>]+>/g, '')
-          .replace(/&nbsp;/g, ' ')
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/\n{3,}/g, '\n\n')
-          .trim();
-
-        notes.push({
-          title, content,
-          folder: entry.folderId || '',
-          createdAt: note.createDate,
-          modifiedAt: note.modifyDate || note.createDate,
-        });
-
-        const pct = Math.round(((i + 1) / total) * 100);
-        updateStatus('📝', `获取笔记内容 "${title.slice(0,15)}..."`, pct, `${i + 1} / ${total}`);
-
-      } catch(e) {
-        console.warn('获取失败:', note.id, e);
+      for (const r of results) {
+        if (r) notes.push(r);
       }
 
-      await sleep(i % 15 === 0 ? 800 : 200);
+      const done = Math.min(i + BATCH, total);
+      const pct = Math.round((done / total) * 100);
+      const lastTitle = notes.length > 0 ? notes[notes.length-1].title.slice(0,15) : '...';
+      updateStatus('⚡', `并发获取 ${done}/${total}`, pct, `${notes.length} 条`);
+
+      if (i + BATCH < total) await sleep(300);
     }
 
     return notes;

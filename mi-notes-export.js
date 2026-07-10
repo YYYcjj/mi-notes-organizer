@@ -107,76 +107,69 @@
     return entries;
   }
 
-  // ========== 阶段2: 获取笔记详情 ==========
+  // ========== 阶段2: 并发获取笔记详情 ==========
+  async function fetchDetail(note) {
+    try {
+      const res = await fetch(`https://i.mi.com/note/note/${note.id}/?ts=${Date.now()}`).then(r => r.json());
+      const entry = res.data?.entry;
+      if (!entry) return null;
+
+      let title = '无标题';
+      try {
+        const extra = JSON.parse(entry.extraInfo || '{}');
+        if (extra.title) title = extra.title;
+      } catch(e) {}
+
+      let content = (entry.content || '')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
+      return {
+        title, content,
+        folder: entry.folderId || '',
+        createdAt: note.createDate,
+        modifiedAt: note.modifyDate || note.createDate,
+      };
+    } catch(e) {
+      return null;
+    }
+  }
+
   async function fetchDetails(list) {
-    log('\n📄 阶段 2/2: 获取笔记内容...', 'title');
+    log('\n📄 阶段 2/2: 并发获取笔记内容...', 'title');
 
     const results = [];
     const total = list.length;
+    const BATCH = 8;
 
-    for (let i = 0; i < total; i++) {
+    for (let i = 0; i < total; i += BATCH) {
       if (stopSignal) {
         log('\n⏸ 用户中止，已保存 ' + results.length + ' 条笔记', 'warn');
         break;
       }
 
-      const note = list[i];
-      try {
-        const res = await fetch(
-          `https://i.mi.com/note/note/${note.id}/?ts=${Date.now()}`
-        ).then(r => r.json());
+      const batch = list.slice(i, i + BATCH);
+      const resps = await Promise.all(batch.map(fetchDetail));
 
-        const entry = res.data?.entry;
-        if (!entry) {
-          log(`   ⚠️ [${i+1}/${total}] 获取失败，跳过`, 'warn');
-          continue;
-        }
-
-        // 解析标题
-        let title = '无标题';
-        let extraInfo = {};
-        try {
-          extraInfo = JSON.parse(entry.extraInfo || '{}');
-          if (extraInfo.title) title = extraInfo.title;
-        } catch(e) {}
-
-        // 解析内容
-        let content = entry.content || '';
-        // 简单清理 HTML 标签
-        content = content
-          .replace(/<br\s*\/?>/gi, '\n')
-          .replace(/<\/p>/gi, '\n')
-          .replace(/<[^>]+>/g, '')
-          .replace(/&nbsp;/g, ' ')
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/\n{3,}/g, '\n\n')
-          .trim();
-
-        results.push({
-          title: title,
-          content: content,
-          folder: entry.folderId || '',
-          createdAt: note.createDate,
-          modifiedAt: note.modifyDate || note.createDate,
-        });
-
-        // 进度提示
-        if ((i+1) % 10 === 0 || i === total - 1) {
-          log(`   📝 [${i+1}/${total}] ${title.slice(0, 30)}`, 'info');
-        }
-
-        // 防封控延时
-        if ((i+1) % CONFIG.longDelayEvery === 0) {
-          await sleep(CONFIG.longDelay);
-        }
-      } catch(e) {
-        log(`   ❌ [${i+1}/${total}] 请求失败: ${e.message}`, 'error');
+      for (const r of resps) {
+        if (r) results.push(r);
       }
 
-      await sleep(CONFIG.delay);
+      const done = Math.min(i + BATCH, total);
+      const pct = Math.round((done / total) * 100);
+      if (results.length > 0) {
+        log(`   ⚡ [${done}/${total}] ${results[results.length-1].title.slice(0, 25)}`, 'info');
+      }
+
+      if (i + BATCH < total) await sleep(300);
     }
 
     log(`\n✅ 内容获取完成: ${results.length} 条`, 'success');

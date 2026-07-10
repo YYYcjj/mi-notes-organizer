@@ -18,7 +18,14 @@ from ..models import Note, NoteCollection
 from ..organizers import NoteOrganizer
 from ..parsers import create_parser, MarkdownParser, JsonParser, ZipParser
 
+from fastapi.staticfiles import StaticFiles
+
 app = FastAPI(title="小米笔记", version="0.1.0")
+
+# 静态文件目录
+STATIC_DIR = Path(__file__).parent.parent.parent / "static"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 _collection: Optional[NoteCollection] = None
 _data_dir: Path = Path("data")
@@ -573,46 +580,49 @@ async def api_mi_fetch(x_mi_cookie: str = Header(default="")):
         if not notes:
             return {"status": "ok", "notes": [], "message": "没有找到笔记"}
         
-        # 阶段2: 获取详情
-        result = []
-        total = len(notes)
+        # 阶段2: 并发获取详情
+        sem = asyncio.Semaphore(10)
         
-        for i, note in enumerate(notes[:200]):  # 限制200条
-            try:
-                detail_url = f"https://i.mi.com/note/note/{note['id']}/?ts={int(datetime.now().timestamp()*1000)}"
-                resp = await client.get(detail_url, headers={"Cookie": x_mi_cookie})
-                entry = resp.json().get("data", {}).get("entry", {})
-                
-                title = "无标题"
+        async def fetch_one(note):
+            async with sem:
                 try:
-                    extra = json.loads(entry.get("extraInfo", "{}"))
-                    if extra.get("title"):
-                        title = extra["title"]
-                except:
-                    pass
-                
-                content = (entry.get("content", "") or "")
-                content = re.sub(r"<br\s*/?>", "\n", content)
-                content = re.sub(r"</p>", "\n", content)
-                content = re.sub(r"<[^>]+>", "", content)
-                content = re.sub(r"&nbsp;", " ", content)
-                content = re.sub(r"&amp;", "&", content)
-                content = re.sub(r"&lt;", "<", content)
-                content = re.sub(r"&gt;", ">", content)
-                content = re.sub(r"&quot;", '"', content)
-                content = re.sub(r"\n{3,}", "\n\n", content).strip()
-                
-                result.append({
-                    "title": title,
-                    "content": content,
-                    "folder": entry.get("folderId", ""),
-                    "createdAt": note.get("createDate"),
-                    "modifiedAt": note.get("modifyDate"),
-                })
-                
-                await asyncio.sleep(0.2)
-            except Exception as e:
-                print(f"获取笔记 {note['id']} 失败: {e}")
+                    detail_url = f"https://i.mi.com/note/note/{note['id']}/?ts={int(datetime.now().timestamp()*1000)}"
+                    resp = await client.get(detail_url, headers={"Cookie": x_mi_cookie})
+                    entry = resp.json().get("data", {}).get("entry", {})
+                    
+                    title = "无标题"
+                    try:
+                        extra = json.loads(entry.get("extraInfo", "{}"))
+                        if extra.get("title"):
+                            title = extra["title"]
+                    except:
+                        pass
+                    
+                    content = (entry.get("content", "") or "")
+                    content = re.sub(r"<br\s*/?>", "\n", content)
+                    content = re.sub(r"</p>", "\n", content)
+                    content = re.sub(r"<[^>]+>", "", content)
+                    content = re.sub(r"&nbsp;", " ", content)
+                    content = re.sub(r"&amp;", "&", content)
+                    content = re.sub(r"&lt;", "<", content)
+                    content = re.sub(r"&gt;", ">", content)
+                    content = re.sub(r"&quot;", '"', content)
+                    content = re.sub(r"\n{3,}", "\n\n", content).strip()
+                    
+                    return {
+                        "title": title,
+                        "content": content,
+                        "folder": entry.get("folderId", ""),
+                        "createdAt": note.get("createDate"),
+                        "modifiedAt": note.get("modifyDate"),
+                    }
+                except Exception as e:
+                    print(f"获取笔记 {note['id']} 失败: {e}")
+                    return None
+        
+        tasks = [fetch_one(n) for n in notes[:200]]
+        results = await asyncio.gather(*tasks)
+        result = [r for r in results if r is not None]
         
         return {
             "status": "ok",
