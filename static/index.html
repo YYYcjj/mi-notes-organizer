@@ -353,7 +353,7 @@ function showList(cat, query) {
     <div style="text-align:center;padding:40px 20px;max-width:500px;margin:0 auto">
       <div style="font-size:3rem;margin-bottom:16px">📝</div>
       <div style="font-size:1.2rem;color:var(--text);margin-bottom:8px;font-weight:bold">小米笔记 —— 云端导入</div>
-      <div style="font-size:.9rem;color:var(--muted);margin-bottom:32px;line-height:1.6">无需下载文件，一键从小米云拉取笔记</div>
+      <div style="font-size:.9rem;color:var(--muted);margin-bottom:32px;line-height:1.6">从小米云拉取笔记，无需下载文件</div>
 
       <button onclick="startMiCloudImport()" style="
         width:100%;padding:14px;background:var(--accent);color:#fff;border:none;
@@ -368,6 +368,10 @@ function showList(cat, query) {
         <div class="hint">支持 ZIP · JSON · Markdown</div>
         <input type="file" id="dropInput" accept=".zip,.json,.md" multiple>
       </div>
+    </div>`;
+    bindDropZone();
+    return;
+  }
     </div>`;
     bindDropZone();
     return;
@@ -565,35 +569,51 @@ function bindDropZone() {
 
 // ============ 从小米云一键导入 ============
 function startMiCloudImport() {
-  // 检查是否已有书签脚本加载
-  const bookmarklet = 'javascript:(function(){var s=document.createElement(\"script\");s.src=\"https://cdn.jsdelivr.net/gh/YYYcjj/mi-notes-organizer@master/bookmarklet-export.js\";document.body.appendChild(s);})()';
+  const scriptUrl = 'https://cdn.jsdelivr.net/gh/YYYcjj/mi-notes-organizer@master/bookmarklet-export.js';
+  const code = `(function(){var s=document.createElement('script');s.src='${scriptUrl}';document.body.appendChild(s);})()`;
+
+  // 复制脚本到剪贴板
+  copyToClipboard(code);
+
+  // 打开小米云
+  window.open('https://i.mi.com/note/h5', '_blank');
 
   const mc = document.getElementById('modalContainer');
   mc.innerHTML = `<div class="modal-overlay" onclick="this.remove()">
-    <div class="modal steps" onclick="event.stopPropagation()" style="max-width:500px">
-      <h3>🔐 从小米云一键导入</h3>
-      <p style="color:var(--text);font-size:.9rem">只需 2 步：</p>
-      <ol>
-        <li><strong>拖拽</strong>下方按钮到浏览器书签栏</li>
-        <li>点击下方按钮打开小米云 → 登录 → 点击书签</li>
+    <div class="modal steps" onclick="event.stopPropagation()" style="max-width:480px">
+      <h3>✅ 脚本已复制，小米云已打开</h3>
+      <ol style="margin-top:12px">
+        <li>在新打开的 <strong>小米云页面登录</strong></li>
+        <li>按 <code>F12</code> → 切换到 <code>Console</code></li>
+        <li><code>Ctrl+V</code> 粘贴 → 回车</li>
+        <li>笔记自动传回此页面 🎉</li>
       </ol>
-      <div style="text-align:center;margin:16px 0">
-        <a href="${bookmarklet}" style="
-          display:inline-block;padding:10px 24px;background:var(--accent);color:#fff;
-          text-decoration:none;border-radius:8px;font-weight:bold;font-size:.95rem;
-          cursor:grab" draggable="false"
-          >📥 拖我到书签栏</a>
-        <div style="font-size:.75rem;color:var(--muted);margin-top:6px">⬆ 先拖到书签栏，再继续</div>
-      </div>
-      <button onclick="window.open('https://i.mi.com/note/h5','_blank');document.getElementById('modalContainer').innerHTML=''" style="
-        width:100%;padding:12px;background:var(--accent2);color:#fff;border:none;
-        border-radius:8px;font-size:.95rem;cursor:pointer;margin-top:8px"
-      >🚀 打开小米云笔记</button>
       <p style="font-size:.75rem;color:var(--muted);margin-top:12px;text-align:center">
-        在新页面登录后，点击书签栏的 <strong>📥 拖我到书签栏</strong> → 笔记自动传回这里
+        如未自动复制，<a href="#" onclick="copyToClipboard('${code.replace(/'/g,"\\'")}');return false">点此重新复制</a>
       </p>
+      <div class="modal-btns" style="margin-top:12px">
+        <button class="btn-ghost" onclick="document.getElementById('modalContainer').innerHTML=''">知道了</button>
+      </div>
     </div>
   </div>`;
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed'; ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
 }
 
 // ============ 初始化 ============
