@@ -349,11 +349,25 @@ function showList(cat, query) {
   const app = document.getElementById('app');
 
   if (!NOTES.length) {
-    app.innerHTML = `<div class="upload-zone" id="dropZone">
-      <div class="icon">📂</div>
-      <div class="title">拖拽文件到这里导入，或点击上传</div>
-      <div class="hint">支持 ZIP · JSON · Markdown · 小米笔记导出文件</div>
-      <input type="file" id="dropInput" accept=".zip,.json,.md" multiple>
+    app.innerHTML = `
+    <div style="text-align:center;padding:40px 20px;max-width:500px;margin:0 auto">
+      <div style="font-size:3rem;margin-bottom:16px">📝</div>
+      <div style="font-size:1.2rem;color:var(--text);margin-bottom:8px;font-weight:bold">小米笔记 —— 云端导入</div>
+      <div style="font-size:.9rem;color:var(--muted);margin-bottom:32px;line-height:1.6">无需下载文件，一键从小米云拉取笔记</div>
+
+      <button onclick="startMiCloudImport()" style="
+        width:100%;padding:14px;background:var(--accent);color:#fff;border:none;
+        border-radius:12px;font-size:1rem;cursor:pointer;margin-bottom:24px;
+        transition:opacity .15s"
+        onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'"
+      >🔐 登录小米账号，一键导入</button>
+
+      <div class="upload-zone" id="dropZone" style="margin-top:0">
+        <div class="icon">📂</div>
+        <div class="title">或者拖拽文件导入</div>
+        <div class="hint">支持 ZIP · JSON · Markdown</div>
+        <input type="file" id="dropInput" accept=".zip,.json,.md" multiple>
+      </div>
     </div>`;
     bindDropZone();
     return;
@@ -549,9 +563,59 @@ function bindDropZone() {
   });
 }
 
+// ============ 从小米云一键导入 ============
+function startMiCloudImport() {
+  // 检查是否已有书签脚本加载
+  const bookmarklet = 'javascript:(function(){var s=document.createElement(\"script\");s.src=\"https://cdn.jsdelivr.net/gh/YYYcjj/mi-notes-organizer@master/bookmarklet-export.js\";document.body.appendChild(s);})()';
+
+  const mc = document.getElementById('modalContainer');
+  mc.innerHTML = `<div class="modal-overlay" onclick="this.remove()">
+    <div class="modal steps" onclick="event.stopPropagation()" style="max-width:500px">
+      <h3>🔐 从小米云一键导入</h3>
+      <p style="color:var(--text);font-size:.9rem">只需 2 步：</p>
+      <ol>
+        <li><strong>拖拽</strong>下方按钮到浏览器书签栏</li>
+        <li>点击下方按钮打开小米云 → 登录 → 点击书签</li>
+      </ol>
+      <div style="text-align:center;margin:16px 0">
+        <a href="${bookmarklet}" style="
+          display:inline-block;padding:10px 24px;background:var(--accent);color:#fff;
+          text-decoration:none;border-radius:8px;font-weight:bold;font-size:.95rem;
+          cursor:grab" draggable="false"
+          >📥 拖我到书签栏</a>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:6px">⬆ 先拖到书签栏，再继续</div>
+      </div>
+      <button onclick="window.open('https://i.mi.com/note/h5','_blank');document.getElementById('modalContainer').innerHTML=''" style="
+        width:100%;padding:12px;background:var(--accent2);color:#fff;border:none;
+        border-radius:8px;font-size:.95rem;cursor:pointer;margin-top:8px"
+      >🚀 打开小米云笔记</button>
+      <p style="font-size:.75rem;color:var(--muted);margin-top:12px;text-align:center">
+        在新页面登录后，点击书签栏的 <strong>📥 拖我到书签栏</strong> → 笔记自动传回这里
+      </p>
+    </div>
+  </div>`;
+}
+
 // ============ 初始化 ============
 function init() {
   loadNotes();
+
+  // postMessage 监听：从小米云通过书签发来的数据
+  window.addEventListener('message', async function(e) {
+    if (e.data && e.data.type === 'mi-notes-import' && e.data.data) {
+      try {
+        const notes = JSON.parse(e.data.data);
+        if (Array.isArray(notes) && notes.length > 0) {
+          toast('正在导入 ' + notes.length + ' 条笔记...');
+          await importFromJson(notes);
+          toast('成功导入 ' + notes.length + ' 条笔记！');
+          showList('全部');
+        }
+      } catch(err) {
+        toast('导入失败: ' + err.message, true);
+      }
+    }
+  });
 
   const hash = window.location.hash;
   if (hash.startsWith('#note-')) {
@@ -599,6 +663,41 @@ function init() {
       importFiles(files);
     }
   });
+}
+
+// ============ 从 JSON 数组导入 ============
+async function importFromJson(items) {
+  const existingTitles = new Set(NOTES.map(n => n.title));
+  let cnt = 0;
+  for (const item of items) {
+    if (!item.title) item.title = '无标题';
+    if (!item.content) item.content = '';
+
+    let title = item.title;
+    let c = 1;
+    while (existingTitles.has(title)) {
+      title = item.title + ' (' + (++c) + ')';
+    }
+    existingTitles.add(title);
+
+    const note = {
+      id: nextId++,
+      title: title,
+      content: item.content || '',
+      category: item.folder || item.category || '',
+      createdAt: item.createdAt || Date.now(),
+      modifiedAt: item.modifiedAt || Date.now(),
+    };
+    classifyNote(note);
+    extractTags(note);
+    note.summary = (note.content || '').substring(0, 200).replace(/\n/g, ' ');
+    note.date = formatDate(note.createdAt);
+    note.wordCount = wordCount(note.content);
+    NOTES.push(note);
+    cnt++;
+  }
+  saveNotes();
+  return cnt;
 }
 
 init();
