@@ -121,6 +121,8 @@
       } catch(e) {}
 
       let content = (entry.content || '')
+        // 保留图片信息：<img> → ☺ 标记
+        .replace(/<img[^>]+src="[^"]*?\/file\/([^"]+)"[^>]*>/gi, '\n☺ $1\n')
         .replace(/<br\s*\/?>/gi, '\n')
         .replace(/<\/p>/gi, '\n')
         .replace(/<[^>]+>/g, '')

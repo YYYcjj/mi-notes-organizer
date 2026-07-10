@@ -86,6 +86,7 @@
       } catch(e) {}
 
       let content = (entry.content || '')
+        .replace(/<img[^>]+src="[^"]*?\/file\/([^"]+)"[^>]*>/gi, '\n☺ $1\n')
         .replace(/<br\s*\/?>/gi, '\n')
         .replace(/<\/p>/gi, '\n')
         .replace(/<[^>]+>/g, '')
