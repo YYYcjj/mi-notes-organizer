@@ -82,9 +82,13 @@
           let title = '无标题';
           try { const extra = JSON.parse(entry.extraInfo||'{}'); if (extra.title) title = extra.title; } catch(e) {}
 
-          // 提取图片 URL 并下载
+          // 提取图片 URL（支持多种格式）
           const rawContent = entry.content || '';
-          const imgMatches = [...rawContent.matchAll(/<img[^>]+src="([^"]+)"[^>]*>/gi)];
+          const imgMatches = [
+            ...rawContent.matchAll(/<img[^>]+src="([^"]+)"[^>]*>/gi),
+            ...rawContent.matchAll(/data-src="([^"]+)"/gi),
+            ...rawContent.matchAll(/src="([^"]*\.(?:jpg|jpeg|png|gif|webp|bmp)[^"]*)"/gi),
+          ];
           const imgUrls = imgMatches.map(m => m[1]);
           const uniqueUrls = [...new Set(imgUrls)];
 
@@ -138,6 +142,10 @@
       const imgCount = Object.keys(imageCache).length;
       const pct = Math.round(done / total * 100);
       log(`   ⚡ [${done}/${total}] ${results.length} 条 · ${imgCount} 张图 (${pct}%)`, 'info');
+      if (uniqueUrls.length > 0 && downloadedImages && Object.keys(downloadedImages).length === 0) {
+        log(`   ⚠️ 批次 ${done} 发现 ${uniqueUrls.length} 个图片URL但下载失败`, 'warn');
+        log(`      示例URL: ${uniqueUrls[0].substring(0, 100)}`, 'info');
+      }
 
       if (i + BATCH < total) await sleep(200);
     }
