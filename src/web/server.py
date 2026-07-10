@@ -4,11 +4,13 @@ import re
 import shutil
 import tempfile
 import zipfile
+import asyncio
+import httpx
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Query, UploadFile, File
+from fastapi import FastAPI, Query, UploadFile, File, Header
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from ..config import OrganizerConfig
@@ -529,6 +531,113 @@ async def api_reload():
     _collection = None
     collection = get_collection()
     return {"status": "ok", "total": collection.total_count}
+
+
+@app.get("/api/mi-fetch")
+async def api_mi_fetch(x_mi_cookie: str = Header(default="")):
+    """代理获取小米云笔记列表——不传Cookie，用自定义Header"""
+    if not x_mi_cookie:
+        return {"status": "error", "message": "缺少 Cookie"}
+    
+    notes = []
+    sync_tag = ""
+    page = 1
+    
+    async with httpx.AsyncClient(timeout=30) as client:
+        # 阶段1: 扫描列表
+        while True:
+            url = f"https://i.mi.com/note/full/page/?ts={int(datetime.now().timestamp()*1000)}&limit=300"
+            if sync_tag:
+                url += f"&syncTag={sync_tag}"
+            
+            try:
+                resp = await client.get(url, headers={"Cookie": x_mi_cookie})
+                data = resp.json()
+                if not data.get("data", {}).get("entries"):
+                    break
+                
+                entries = data["data"]["entries"]
+                notes.extend(entries)
+                sync_tag = data["data"].get("syncTag", "")
+                
+                if not sync_tag:
+                    break
+                page += 1
+                await asyncio.sleep(0.3)
+            except Exception as e:
+                if page == 1:
+                    return {"status": "error", "message": f"Cookie 无效或过期: {str(e)}"}
+                break
+        
+        if not notes:
+            return {"status": "ok", "notes": [], "message": "没有找到笔记"}
+        
+        # 阶段2: 获取详情
+        result = []
+        total = len(notes)
+        
+        for i, note in enumerate(notes[:200]):  # 限制200条
+            try:
+                detail_url = f"https://i.mi.com/note/note/{note['id']}/?ts={int(datetime.now().timestamp()*1000)}"
+                resp = await client.get(detail_url, headers={"Cookie": x_mi_cookie})
+                entry = resp.json().get("data", {}).get("entry", {})
+                
+                title = "无标题"
+                try:
+                    extra = json.loads(entry.get("extraInfo", "{}"))
+                    if extra.get("title"):
+                        title = extra["title"]
+                except:
+                    pass
+                
+                content = (entry.get("content", "") or "")
+                content = re.sub(r"<br\s*/?>", "\n", content)
+                content = re.sub(r"</p>", "\n", content)
+                content = re.sub(r"<[^>]+>", "", content)
+                content = re.sub(r"&nbsp;", " ", content)
+                content = re.sub(r"&amp;", "&", content)
+                content = re.sub(r"&lt;", "<", content)
+                content = re.sub(r"&gt;", ">", content)
+                content = re.sub(r"&quot;", '"', content)
+                content = re.sub(r"\n{3,}", "\n\n", content).strip()
+                
+                result.append({
+                    "title": title,
+                    "content": content,
+                    "folder": entry.get("folderId", ""),
+                    "createdAt": note.get("createDate"),
+                    "modifiedAt": note.get("modifyDate"),
+                })
+                
+                await asyncio.sleep(0.2)
+            except Exception as e:
+                print(f"获取笔记 {note['id']} 失败: {e}")
+        
+        return {
+            "status": "ok",
+            "notes": result,
+            "total_found": total,
+            "fetched": len(result),
+            "message": f"成功获取 {len(result)} / {total} 条笔记",
+        }
+
+
+@app.get("/api/mi-check-cookie")
+async def api_mi_check_cookie(x_mi_cookie: str = Header(default="")):
+    """检查 Cookie 是否有效"""
+    if not x_mi_cookie:
+        return {"valid": False, "message": "缺少 Cookie"}
+    
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            url = f"https://i.mi.com/note/full/page/?ts={int(datetime.now().timestamp()*1000)}&limit=1"
+            resp = await client.get(url, headers={"Cookie": x_mi_cookie})
+            data = resp.json()
+            if data.get("data"):
+                return {"valid": True, "message": "Cookie 有效"}
+            return {"valid": False, "message": "Cookie 无效或已过期"}
+    except Exception as e:
+        return {"valid": False, "message": str(e)}
 
 
 def start_server(
