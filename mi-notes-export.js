@@ -67,6 +67,7 @@
 
     // 全局图片缓存（避免重复下载）
     const imageCache = {};
+    const debugFirstBatch = list.length > 0 ? list[0] : null;
 
     for (let i = 0; i < total; i += BATCH) {
       if (stopSignal) { log('⏸ 已中止', 'warn'); break; }
@@ -142,9 +143,23 @@
       const imgCount = Object.keys(imageCache).length;
       const pct = Math.round(done / total * 100);
       log(`   ⚡ [${done}/${total}] ${results.length} 条 · ${imgCount} 张图 (${pct}%)`, 'info');
-      if (uniqueUrls.length > 0 && downloadedImages && Object.keys(downloadedImages).length === 0) {
-        log(`   ⚠️ 批次 ${done} 发现 ${uniqueUrls.length} 个图片URL但下载失败`, 'warn');
-        log(`      示例URL: ${uniqueUrls[0].substring(0, 100)}`, 'info');
+
+      // Debug: 检查第一条笔记的 content 格式
+      if (i === 0 && results.length > 0) {
+        const firstContent = results[0].content || '';
+        const hasImg = /<img|☺/.test(firstContent);
+        const rawSample = (batchResults[0] && batchResults[0].content) ? batchResults[0].content : '';
+        log(`   🔍 调试：第一条 content 长度=${firstContent.length}, 含img标识=${hasImg}`, 'info');
+        if (rawSample && i === 0) {
+          // 从 entry.content 看原始 img 标签
+          try {
+            const r = await fetch(`https://i.mi.com/note/note/${list[0].id}/?ts=${Date.now()}`).then(r => r.json());
+            const ec = r.data?.entry?.content || '';
+            const imgs = ec.match(/<img[^>]+>/g) || [];
+            log(`   🔍 原始 entry.content 含 ${imgs.length} 个 <img> 标签`, 'info');
+            if (imgs[0]) log(`      样例: ${imgs[0].substring(0, 200)}`, 'info');
+          } catch(e) {}
+        }
       }
 
       if (i + BATCH < total) await sleep(200);
