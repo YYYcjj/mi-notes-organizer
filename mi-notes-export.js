@@ -7,7 +7,7 @@
 (async function() {
   'use strict';
 
-  const CONFIG = { listLimit: 200, delay: 300 };
+  const CONFIG = { listLimit: 300, delay: 80 };
 
   let stopSignal = false;
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -63,7 +63,7 @@
     log('\n📄 获取内容+下载图片...', 'title');
     const results = [];
     const total = list.length;
-    const BATCH = 6; // 降低并发，避免触发限制
+    const BATCH = 12;
 
     // 全局图片缓存（避免重复下载）
     const imageCache = {};
@@ -139,7 +139,7 @@
       const pct = Math.round(done / total * 100);
       log(`   ⚡ [${done}/${total}] ${results.length} 条 · ${imgCount} 张图 (${pct}%)`, 'info');
 
-      if (i + BATCH < total) await sleep(400);
+      if (i + BATCH < total) await sleep(200);
     }
 
     log(`\n✅ 内容完成: ${results.length} 条 · 图片 ${Object.keys(imageCache).length} 张`, 'success');
