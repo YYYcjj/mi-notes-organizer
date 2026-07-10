@@ -411,21 +411,22 @@ def notes_to_json(collection: NoteCollection) -> list:
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(data: str = "data"):
-    """主页"""
-    global _data_dir
+async def index():
+    """主页 — 优先返回静态 HTML，否则回退到内置模板"""
+    # 尝试读取 static/index.html
+    static_index = STATIC_DIR / "index.html" if STATIC_DIR else None
+    if static_index and static_index.exists():
+        return static_index.read_text(encoding="utf-8")
+    
+    # 回退到内置模板
     if not _collection:
-        _data_dir = Path(data)
         load_notes(_data_dir)
-
     collection = get_collection()
     notes_json = json.dumps({
         "notes": notes_to_json(collection),
         "stats": collection.stats(),
     }, ensure_ascii=False)
-
-    html = HTML_TEMPLATE.replace("__NOTES__", notes_json)
-    return html
+    return HTML_TEMPLATE.replace("__NOTES__", notes_json)
 
 
 @app.post("/api/upload")
