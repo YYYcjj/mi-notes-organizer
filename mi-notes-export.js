@@ -144,22 +144,28 @@
       const pct = Math.round(done / total * 100);
       log(`   ⚡ [${done}/${total}] ${results.length} 条 · ${imgCount} 张图 (${pct}%)`, 'info');
 
-      // Debug: 检查第一条笔记的 content 格式
+      // Debug: 探查 entry 真实结构
       if (i === 0 && results.length > 0) {
-        const firstContent = results[0].content || '';
-        const hasImg = /<img|☺/.test(firstContent);
-        const rawSample = (batchResults[0] && batchResults[0].content) ? batchResults[0].content : '';
-        log(`   🔍 调试：第一条 content 长度=${firstContent.length}, 含img标识=${hasImg}`, 'info');
-        if (rawSample && i === 0) {
-          // 从 entry.content 看原始 img 标签
-          try {
-            const r = await fetch(`https://i.mi.com/note/note/${list[0].id}/?ts=${Date.now()}`).then(r => r.json());
-            const ec = r.data?.entry?.content || '';
-            const imgs = ec.match(/<img[^>]+>/g) || [];
-            log(`   🔍 原始 entry.content 含 ${imgs.length} 个 <img> 标签`, 'info');
-            if (imgs[0]) log(`      样例: ${imgs[0].substring(0, 200)}`, 'info');
-          } catch(e) {}
-        }
+        try {
+          const r = await fetch(`https://i.mi.com/note/note/${list[0].id}/?ts=${Date.now()}`).then(r => r.json());
+          const entry = r.data?.entry;
+          log(`   🔍 entry 字段: ${Object.keys(entry||{}).join(', ')}`, 'info');
+          if (entry?.extraInfo) {
+            try {
+              const ex = JSON.parse(entry.extraInfo);
+              log(`   🔍 extraInfo: ${JSON.stringify(ex).substring(0, 200)}`, 'info');
+            } catch(e) {}
+          }
+          const ec = entry?.content || '';
+          const imgs = ec.match(/<img[^>]+>/g) || [];
+          log(`   🔍 content 长度=${ec.length}, 含 ${imgs.length} 个 <img>`, 'info');
+          // 找所有可能的附件字段
+          for (const k of Object.keys(entry || {})) {
+            if (/file|attach|image|img/i.test(k)) {
+              log(`   🔍 字段 ${k}: ${JSON.stringify(entry[k]).substring(0, 300)}`, 'info');
+            }
+          }
+        } catch(e) { log(`   ❌ 调试失败: ${e.message}`, 'error'); }
       }
 
       if (i + BATCH < total) await sleep(200);
