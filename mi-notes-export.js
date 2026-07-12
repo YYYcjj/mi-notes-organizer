@@ -144,26 +144,44 @@
       const pct = Math.round(done / total * 100);
       log(`   ⚡ [${done}/${total}] ${results.length} 条 · ${imgCount} 张图 (${pct}%)`, 'info');
 
-      // Debug: 探查 entry 真实结构
-      if (i === 0 && results.length > 0) {
+      // Debug: 探查 entry 真实结构 + 尝试图片 API
+      if (i === 0) {
         try {
           const r = await fetch(`https://i.mi.com/note/note/${list[0].id}/?ts=${Date.now()}`).then(r => r.json());
           const entry = r.data?.entry;
-          log(`   🔍 entry 字段: ${Object.keys(entry||{}).join(', ')}`, 'info');
-          if (entry?.extraInfo) {
-            try {
-              const ex = JSON.parse(entry.extraInfo);
-              log(`   🔍 extraInfo: ${JSON.stringify(ex).substring(0, 200)}`, 'info');
-            } catch(e) {}
-          }
-          const ec = entry?.content || '';
-          const imgs = ec.match(/<img[^>]+>/g) || [];
-          log(`   🔍 content 长度=${ec.length}, 含 ${imgs.length} 个 <img>`, 'info');
-          // 找所有可能的附件字段
-          for (const k of Object.keys(entry || {})) {
-            if (/file|attach|image|img/i.test(k)) {
-              log(`   🔍 字段 ${k}: ${JSON.stringify(entry[k]).substring(0, 300)}`, 'info');
+          if (entry) {
+            log(`   🔍 entry 字段: ${Object.keys(entry).join(', ')}`, 'info');
+            // 打每个字段
+            for (const k of Object.keys(entry)) {
+              const v = entry[k];
+              const t = typeof v;
+              const preview = t === 'string' ? v.substring(0, 200) : JSON.stringify(v).substring(0, 200);
+              log(`   📦 ${k} (${t}): ${preview}`, 'info');
             }
+            const ec = entry.content || '';
+            const imgs = ec.match(/<img[^>]+>/g) || [];
+            log(`   🖼 content 含 ${imgs.length} 个 <img>`, imgs.length ? 'success' : 'warn');
+          } else {
+            log(`   ⚠️ entry 不存在`, 'error');
+            log(`   📦 完整响应: ${JSON.stringify(r).substring(0, 500)}`, 'info');
+          }
+
+          // 尝试多个图片 API
+          const apis = [
+            `https://i.mi.com/note/note/${list[0].id}/images/?ts=${Date.now()}`,
+            `https://i.mi.com/note/note/${list[0].id}/files/?ts=${Date.now()}`,
+            `https://i.mi.com/note/note/${list[0].id}/attachments/?ts=${Date.now()}`,
+            `https://i.mi.com/note/note/${list[0].id}/resources/?ts=${Date.now()}`,
+          ];
+          for (const url of apis) {
+            try {
+              const rr = await fetch(url);
+              log(`   🌐 ${url.split('/').slice(-2,-1)[0]}: HTTP ${rr.status}`, 'info');
+              if (rr.ok) {
+                const txt = await rr.text();
+                log(`      内容: ${txt.substring(0, 300)}`, 'info');
+              }
+            } catch(e) {}
           }
         } catch(e) { log(`   ❌ 调试失败: ${e.message}`, 'error'); }
       }
