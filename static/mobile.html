@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>小米笔记 · 手机端导入</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,sans-serif;background:#0d1117;color:#c9d1d9;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px;max-width:400px;width:100%;margin-top:40px}
+h2{font-size:1.2rem;margin-bottom:16px;color:#ff6700}
+.step{display:flex;gap:12px;align-items:flex-start;margin-bottom:16px}
+.num{background:#ff6700;color:#fff;width:24px;height:24px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:bold;flex-shrink:0}
+.step p{font-size:.9rem;line-height:1.6}
+.step code{background:#30363d;padding:1px 5px;border-radius:4px;font-size:.82em;word-break:break-all}
+.btn{display:block;width:100%;padding:14px;background:#ff6700;color:#fff;border:none;border-radius:10px;font-size:1rem;cursor:pointer;margin:8px 0;text-align:center;text-decoration:none}
+.btn.blue{background:#58a6ff}
+.hint{font-size:.78rem;color:#8b949e;text-align:center;margin-top:12px}
+#status{text-align:center;font-size:.85rem;color:#3fb950;margin-top:16px;min-height:24px}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h2>📝 手机端导入笔记</h2>
+
+  <div id="step1">
+    <div class="step">
+      <div class="num">1</div>
+      <p>打开 <strong>i.mi.com</strong>，登录小米账号</p>
+    </div>
+    <a class="btn" href="https://i.mi.com/note/h5" target="_blank">🔑 打开小米云登录</a>
+  </div>
+
+  <div id="step2" style="margin-top:16px">
+    <div class="step">
+      <div class="num">2</div>
+      <p>复制下面的代码 → 在小米云页面的网址栏<strong>粘贴并回车</strong><br>
+      <span class="hint">（部分浏览器需在网址栏先打一个字母再粘贴）</span></p>
+    </div>
+    <button class="btn blue" onclick="copyBookmarklet()">📋 复制导入脚本</button>
+  </div>
+
+  <div class="hint" id="bkmHint" style="display:none">已复制！切换到小米云标签页 → 点网址栏 → 粘贴 → 回车</div>
+</div>
+
+<div id="status"></div>
+
+<script>
+// 目标页面 URL - 部署到 Render 后会自动替换
+var TARGET = location.origin || 'https://mi-notes.onrender.com';
+
+function getBookmarklet() {
+  return 'javascript:(function(){var c=document.cookie;location.href="'+TARGET+'/?cookie="+encodeURIComponent(c);})()';
+}
+
+function copyBookmarklet() {
+  var code = getBookmarklet();
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(code).then(function(){
+      document.getElementById('bkmHint').style.display = 'block';
+    }).catch(function(){
+      alert('复制失败，请长按手动复制：\n' + code);
+    });
+  } else {
+    // 移动端兼容
+    var ta = document.createElement('textarea');
+    ta.value = code;
+    ta.style.position = 'fixed';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    document.getElementById('bkmHint').style.display = 'block';
+  }
+}
+
+// ===== 接收 Cookie 并拉取笔记 =====
+var urlParams = new URLSearchParams(location.search);
+var cookie = urlParams.get('cookie');
+
+if (cookie) {
+  document.getElementById('status').textContent = '✅ 已获取 Cookie，正在拉取笔记...';
+  
+  // 存储到 localStorage
+  localStorage.setItem('mi_note_cookie', cookie);
+  
+  // 清理 URL
+  history.replaceState(null, '', location.pathname);
+  
+  // 显示导入按钮
+  document.getElementById('step1').innerHTML = '<div class="step"><div class="num">✓</div><p>Cookie 已获取（有效期约2-4周）</p></div>';
+  document.getElementById('step2').innerHTML = 
+    '<button class="btn" onclick="fetchNotes()" id="fetchBtn">🚀 拉取笔记</button>' +
+    '<div class="hint">约需 30-60 秒，取决于笔记数量</div>';
+}
+
+async function fetchNotes() {
+  var btn = document.getElementById('fetchBtn');
+  btn.disabled = true; btn.textContent = '正在拉取...';
+  var status = document.getElementById('status');
+  status.textContent = '';
+  
+  var savedCookie = localStorage.getItem('mi_note_cookie') || cookie;
+  
+  try {
+    var resp = await fetch('/api/mi-fetch', {
+      headers: { 'X-Mi-Cookie': savedCookie }
+    });
+    var data = await resp.json();
+    
+    if (data.status !== 'ok') {
+      status.textContent = '❌ ' + (data.message || '导入失败');
+      btn.disabled = false; btn.textContent = '🚀 重试';
+      return;
+    }
+    
+    // 存储笔记
+    localStorage.setItem('mi_notes_data_v2', JSON.stringify({
+      notes: data.notes.map(function(n, i) {
+        return {
+          id: i + 1,
+          title: n.title || '无标题',
+          content: n.content || '',
+          category: n.folder || '',
+          createdAt: n.createdAt || Date.now(),
+          modifiedAt: n.modifiedAt || Date.now(),
+          summary: (n.content || '').substring(0, 200).replace(/\n/g, ' '),
+          date: new Date(n.createdAt || Date.now()).toISOString().slice(0,10),
+          wordCount: (n.content || '').replace(/<[^>]+>/g,'').length,
+          tags: []
+        };
+      }),
+      nextId: data.notes.length + 1
+    }));
+    
+    status.innerHTML = '🎉 已导入 <b>' + data.notes.length + '</b> 条笔记！<br><a href="/" style="color:#58a6ff">点此查看笔记列表</a>';
+    btn.style.display = 'none';
+    
+  } catch(e) {
+    status.textContent = '❌ 连接失败，请确认已部署后端';
+    btn.disabled = false; btn.textContent = '🚀 重试';
+  }
+}
+</script>
+</body>
+</html>
