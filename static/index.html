@@ -525,6 +525,20 @@ function deleteNote(id) {
   });
 }
 
+// ========== 电脑端控制台导出流程 ==========
+function startMiCloudImport() {
+  var scriptUrl = 'https://cdn.jsdelivr.net/gh/YYYcjj/mi-notes-organizer@master/mi-notes-export.js';
+  var code = '(function(){var s=document.createElement(\'script\');s.src=\''+scriptUrl+'\';document.body.appendChild(s);})()';
+  copyText(code);
+  window.open('https://i.mi.com/note/h5', '_blank');
+  var mc = document.getElementById('modalContainer');
+  mc.innerHTML = '<div class="modal-overlay" onclick="this.remove()"><div class="modal" onclick="event.stopPropagation()"><h3>✅ 脚本已复制，小米云已打开</h3><ol><li>在新标签登录小米账号</li><li>按 <code>F12</code> → <code>Console</code></li><li><code>Ctrl+V</code> 粘贴 → 回车</li><li>下载 JSON → 拖入本页</li></ol><p style="font-size:.75rem;color:var(--muted);margin-top:8px">未自动复制？<a href="#" onclick="copyText(\''+code.replace(/'/g,"\\'")+'\');return false">点此重试</a></p><div class="modal-btns"><button class="btn-ghost" onclick="document.getElementById(\'modalContainer\').innerHTML=\'\'">知道了</button></div></div></div>';
+}
+
+function copyText(text) {
+  if (navigator.clipboard) { navigator.clipboard.writeText(text).catch(function(){}); }
+}
+
 // ========== 拖拽上传 ==========
 function bindDropZone() {
   var zone = document.getElementById('dropZone');
@@ -543,17 +557,29 @@ function bindDropZone() {
 }
 
 // ========== 小米云导入流程 ==========
-function startMiImport() {
-  var scriptUrl = 'https://cdn.jsdelivr.net/gh/YYYcjj/mi-notes-organizer@master/mi-notes-export.js';
-  var code = '(function(){var s=document.createElement(\'script\');s.src=\''+scriptUrl+'\';document.body.appendChild(s);})()';
-  copyText(code);
-  window.open('https://i.mi.com/note/h5', '_blank');
-  var mc = document.getElementById('modalContainer');
-  mc.innerHTML = '<div class="modal-overlay" onclick="this.remove()"><div class="modal" onclick="event.stopPropagation()"><h3>✅ 脚本已复制，小米云已打开</h3><ol><li>在新标签登录小米账号</li><li>按 <code>F12</code> → <code>Console</code></li><li><code>Ctrl+V</code> 粘贴 → 回车</li><li>下载 JSON → 拖入本页</li></ol><p style="font-size:.75rem;color:var(--muted);margin-top:8px">未自动复制？<a href="#" onclick="copyText(\''+code.replace(/'/g,"\\'")+'\');return false">点此重试</a></p><div class="modal-btns"><button class="btn-ghost" onclick="document.getElementById(\'modalContainer\').innerHTML=\'\'">知道了</button></div></div></div>';
+// ========== 后端 API 导入 ==========
+async function importFromServer(cookie) {
+  var el = document.getElementById('importStatus');
+  el.textContent = '正在从小米云拉取...';
+  try {
+    var resp = await fetch('/api/mi-fetch', { headers: { 'X-Mi-Cookie': cookie } });
+    var data = await resp.json();
+    if (data.status !== 'ok' || !data.notes.length) {
+      el.textContent = data.message || '导入失败';
+      return;
+    }
+    toast('已拉取 '+data.notes.length+' 条笔记');
+    await importFromJson(data.notes);
+    showList('全部');
+    el.textContent = '';
+  } catch(e) {
+    el.textContent = '连接失败：' + e.message;
+  }
 }
 
-function copyText(text) {
-  if (navigator.clipboard) { navigator.clipboard.writeText(text).catch(function(){}); }
+function startMiImport() {
+  var mc = document.getElementById('modalContainer');
+  mc.innerHTML = '<div class="modal-overlay" onclick="this.remove()"><div class="modal" onclick="event.stopPropagation()" style="max-width:480px"><h3>🔐 导入小米笔记</h3><p style="font-size:.82rem;color:var(--muted);margin-bottom:12px">在电脑上打开 i.mi.com → F12 → Application → Cookies → 复制 cookie 值（serviceToken 那一段也行）</p><textarea id="cookieInput" style="width:100%;height:60px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px;font-size:.78rem;resize:none" placeholder="粘贴小米云 Cookie..."></textarea><div id="importStatus" style="font-size:.78rem;color:var(--accent);margin:6px 0"></div><div class="modal-btns"><button class="btn-ghost" onclick="document.getElementById(\'modalContainer\').innerHTML=\'\'">取消</button><button class="btn" onclick="var c=document.getElementById(\'cookieInput\').value.trim();if(c)importFromServer(c);">从服务器导入</button></div><p style="font-size:.72rem;color:var(--muted);margin-top:10px">Cookie 仅用于本次请求，不留存。<br>或者 <a href="#" onclick="startMiCloudImport();return false">在电脑上运行导出脚本</a></p></div></div>';
 }
 
 // ========== 初始化 ==========
