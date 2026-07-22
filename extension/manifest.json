@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "小米笔记导出器",
+  "version": "1.0",
+  "description": "一键导出小米云笔记，含图片。打开 i.mi.com 后点击按钮即可。",
+  "icons": {
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://i.mi.com/note/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "host_permissions": ["https://i.mi.com/*"],
+  "web_accessible_resources": [
+    {
+      "resources": ["inject.js"],
+      "matches": ["https://i.mi.com/*"]
+    }
+  ]
+}
